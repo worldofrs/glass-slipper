@@ -1,13 +1,3 @@
-
-
-https://github.com/user-attachments/assets/0f86ccad-bc86-413b-baf1-1e337521a117
-
-
-
-https://github.com/user-attachments/assets/2408dba2-d894-4c95-91e1-1d6170b8527b
-
-
-
 # GlassSlipper.ai
 
 SteelHacks Hackathon Project 2025
