@@ -1,3 +1,13 @@
+
+
+https://github.com/user-attachments/assets/0f86ccad-bc86-413b-baf1-1e337521a117
+
+
+
+https://github.com/user-attachments/assets/2408dba2-d894-4c95-91e1-1d6170b8527b
+
+
+
 # GlassSlipper.ai
 
 SteelHacks Hackathon Project 2025
@@ -23,6 +33,8 @@ GlassSlipper.ai lets users upload a photo of a celebrity they admire and receive
    - **Clothing Suggestions** — outfit pieces and styles that complement the look
    - **Jewelry & Accessories** — earrings, necklaces, hair accessories, etc.
    - **Application Tips** — how to apply and style the look
+
+https://github.com/user-attachments/assets/53780f42-79b1-46cf-a5e2-8adc236b7ad1
 
 ## Tech Stack
 
