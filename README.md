@@ -1,40 +1,75 @@
-# glass-slipper
+# GlassSlipper.ai
+
 SteelHacks Hackathon Project 2025
 
-Team information:
-Emily Bartell     egb87@pitt.edu
-Raima Saha        ras709@pitt.edu
-Sahiti Kulkarni
-Lakshya Srinivasan
+## Team
 
-This app allows users to upload a picture of a celebrity they look up to and would like makeup advice from. 
-Our app then takes that celebrity and detects some of there main traits including gender, age, and basic facial features.
-Then, it provides the user with specified makeup products and tips similar to the style of their favorite celebrity.
-This way, users can find products that their favorite celebs use and add them to their own routines. 
-Thus, allowing them to have a similar routine to someone they look up to! This can lead to more confidence and inspire creativity. 
+- Raima Saha
+- Emily Bartell
+- Sahiti Kulkarni
+- Lakshya Srinivasan
 
-Frontend:
+## About
 
-We used HTML and CSS to layout the pages for our app. We chose a pink color pallete to match our fairy godmother theme. 
-The home page shows our logo and provides the users with a start buttom. From there, the user gets brought to an upload page.
-This page allows the user to upload an image of a celebrity of their choosing. Finally, on the last page, the user sees there makeup tips and recommended products. 
+GlassSlipper.ai lets users upload a photo of a celebrity they admire and receive personalized style recommendations inspired by that celebrity's look. The app detects the celebrity, analyzes their facial traits (gender, age, emotions, facial features, pose), and generates tailored suggestions for makeup, clothing, and jewelry/accessories.
 
+## How It Works
 
-Backend:
+1. Upload an image of a celebrity
+2. Amazon Rekognition identifies the celebrity and detects facial traits (gender, age range, emotions, smile, eyeglasses, beard, etc.)
+3. Claude AI generates style recommendations based on those traits, organized into:
+   - **Drugstore Makeup** — budget-friendly product picks
+   - **High-End Makeup** — premium product picks (matching the same categories as drugstore)
+   - **Clothing Suggestions** — outfit pieces and styles that complement the look
+   - **Jewelry & Accessories** — earrings, necklaces, hair accessories, etc.
+   - **Application Tips** — how to apply and style the look
 
-We first use Amazons Rekognition API to detect the celebrity from the user input.
-Then, using this same API, it detects facial features and other basic information based off of the celebrity. 
-It gathers features such as the persons gender, age, emotions, eyes, mouth, pose, etc. 
-Then, using the OpenAI API, we take this information and curate makeup products and tips that closely match the ones the celebrity uses. 
-In the end, users get recommendations based on the facial features of their favorite celebrity. 
-*Fast API was used to connect our frontend to our backend
+## Tech Stack
 
+- **Frontend:** React (TypeScript) with Vite, styled with CSS, using react-markdown to render recommendations
+- **Backend:** FastAPI (Python), serving a REST API at `POST /upload/demo_user`
+- **Celebrity & Face Detection:** Amazon Rekognition (`recognize_celebrities` + `detect_faces`)
+- **AI Recommendations:** Anthropic Claude API (claude-sonnet-4-20250514)
 
-Future Plans:
+## Prerequisites
 
-1. Address the API call issues: We will set it up so that each user have to create an account to track the usage by user. Additionally, we will incorporate a database (preferably PostgreSQL so it can scale) so we can track usage per user and it will be easier to keep track of which user has exceeded their limit and notify them when they have.
+Before running the app, you need the following API keys and credentials:
 
-2. Update to suggest to users face rather than basing off celebrity: Include an option so that the user can upload a picture of their face so that makeup, hair, and jewelry suggestions can be tailored to the user.
+- **AWS account** with access to [Amazon Rekognition](https://aws.amazon.com/rekognition/) in the `us-east-2` region. You'll need your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+- **Anthropic API key** — sign up at [console.anthropic.com](https://console.anthropic.com/) to get your `ANTHROPIC_API_KEY`.
 
-3. Improve depth and quality of suggestions: With more work, we could implement more prompting to have the AI suggest with more detail, particularly in regards to undertone and hue of the skin so that makeup and jewelry suggestions can be even more specific.
+Create a `backend/.env` file with the following values:
 
+```
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+## Running Locally
+
+### Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+The API runs at `http://localhost:8000`.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The app runs at `http://localhost:5173`.
+
+## Future Plans
+
+1. **User accounts & usage tracking:** Add authentication and a database (PostgreSQL) to track API usage per user and enforce rate limits.
+2. **User-face analysis:** Allow users to upload a photo of their own face so recommendations are tailored to their features rather than a celebrity's.
+3. **Deeper skin-tone analysis:** Improve prompting to factor in undertone and hue for more precise makeup and jewelry suggestions.

@@ -10,6 +10,9 @@ __pycache__/
 .venv/
 venv/
 
+# Uploads
+backend/uploads/
+
 # Environment files (AWS keys etc.)
 .env
 .env.local

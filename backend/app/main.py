@@ -1,20 +1,27 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+import asyncio
 import os
 import boto3
 from dotenv import load_dotenv
-from openai import OpenAI
+import anthropic
 
 # Load environment variables
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 app = FastAPI(title="GlassSlipper.ai")
 
 # Allow frontend to call backend
-origins = ["http://127.0.0.1:5500", "http://localhost:5500"]
+origins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -30,23 +37,30 @@ def get_makeup_recommendations(traits):
     prompt = f"""
     Given the following facial traits:
     {traits}
-    Suggest a list of makeup products (type, brand, shade) suitable for these traits.
+
+    Suggest makeup products, clothing, and jewelry/accessories suitable for these traits.
+
+    You MUST format your response exactly as follows:
+    - Use ### headings to separate sections: "Drugstore Makeup", "High-End Makeup", "Clothing Suggestions", "Jewelry & Accessories", and "Application Tips"
+    - Under each section, list every recommendation as a bullet point using "-"
+    - For makeup sections, each bullet should follow the format: **Product Type** — Brand Shade Name
+    - Both "Drugstore Makeup" and "High-End Makeup" must recommend the same product categories (e.g., if you suggest a foundation, blush, lipstick, and mascara in Drugstore, suggest a foundation, blush, lipstick, and mascara in High-End too)
+    - Include 4-5 product recommendations per makeup section
+    - For "Clothing Suggestions", recommend 3-4 outfit pieces or styles that complement the person's features, using the format: **Item** — Description
+    - For "Jewelry & Accessories", recommend 3-4 pieces (e.g., earrings, necklaces, hair accessories) using the format: **Item** — Description
+    - Under "Application Tips", list 3-4 brief tips as bullet points using "-"
+    - Do NOT use numbered lists, tables, or any other formatting
     """
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
     )
-    return response.choices[0].message.content
+    return response.content[0].text
 
 
-        
-
-# Upload image & detect celebrities 
+# Upload image & detect celebrities
 @app.post("/upload/demo_user")
-=======
-
-@app.post("/upload/demo_user", response_class=HTMLResponse)
 async def upload_image(file: UploadFile = File(...)):
     # Save uploaded file temporarily
     upload_folder = "uploads"
@@ -64,9 +78,31 @@ async def upload_image(file: UploadFile = File(...)):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    # Process faces and generate makeup recommendations
-    results = []
+    # Build a lookup of celebrity names by bounding box position
+    celeb_names = []
+    for celeb in celeb_response.get("CelebrityFaces", []):
+        box = celeb['Face']['BoundingBox']
+        celeb_names.append({
+            "name": celeb['Name'],
+            "left": box['Left'],
+            "top": box['Top'],
+        })
+
+    def match_celebrity(face_box):
+        """Match a detected face to a celebrity by closest bounding box position."""
+        best = None
+        best_dist = float('inf')
+        for c in celeb_names:
+            dist = abs(c['left'] - face_box['Left']) + abs(c['top'] - face_box['Top'])
+            if dist < best_dist:
+                best_dist = dist
+                best = c['name']
+        return best if best_dist < 0.1 else None
+
+    # Process faces
+    face_data = []
     for face in traits_response.get("FaceDetails", []):
+        celebrity_name = match_celebrity(face['BoundingBox'])
         traits_info = {
             "Gender": face['Gender']['Value'],
             "AgeRange": face['AgeRange'],
@@ -80,35 +116,52 @@ async def upload_image(file: UploadFile = File(...)):
             "MouthOpen": face['MouthOpen']['Value'],
             "Pose": face['Pose']
         }
-        traits_info['makeup_recommendations'] = get_makeup_recommendations(traits_info)
-        results.append(traits_info)
+        face_result = {
+            "name": celebrity_name,
+            "gender": traits_info["Gender"],
+            "ageRange": {"Low": traits_info["AgeRange"]["Low"], "High": traits_info["AgeRange"]["High"]},
+            "emotions": traits_info["Emotions"],
+            "smile": traits_info["Smile"],
+            "eyeglasses": traits_info["Eyeglasses"],
+            "sunglasses": traits_info["Sunglasses"],
+            "beard": traits_info["Beard"],
+            "mustache": traits_info["Mustache"],
+            "eyesOpen": traits_info["EyesOpen"],
+            "mouthOpen": traits_info["MouthOpen"],
+            "pose": {
+                "Pitch": traits_info["Pose"]["Pitch"],
+                "Roll": traits_info["Pose"]["Roll"],
+                "Yaw": traits_info["Pose"]["Yaw"],
+            },
+            "makeupRecommendations": "",
+        }
+        face_data.append((face_result, traits_info))
 
-    # Generate HTML dynamically
-    html_content = f"<h1>Results for {file.filename}</h1>"
-    for i, face in enumerate(results, start=1):
-        html_content += f"<h2>Face {i}</h2>"
-        html_content += "<ul>"
-        for key, value in face.items():
-            html_content += f"<li><b>{key}:</b> {value}</li>"
-        html_content += "</ul>"
+    # Generate makeup recommendations concurrently for all faces
+    async def fetch_recommendations(face_result, traits_info):
+        try:
+            rec = await asyncio.to_thread(get_makeup_recommendations, traits_info)
+            face_result["makeupRecommendations"] = rec
+        except Exception as e:
+            print(f"Claude API error: {e}")
+            face_result["makeupRecommendations"] = "Makeup recommendations are currently unavailable."
 
-    return HTMLResponse(content=html_content)
+    await asyncio.gather(*[fetch_recommendations(fr, ti) for fr, ti in face_data])
+
+    return {"filename": file.filename, "faces": [fr for fr, _ in face_data]}
 
 
 
 
-@app.get("/test-openai", response_class=HTMLResponse)
-async def test_openai():
+@app.get("/test-claude", response_class=HTMLResponse)
+async def test_claude():
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Give me 3 quick makeup tips."}
-            ],
-            temperature=0.7,
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": "Give me 3 quick makeup tips."}],
         )
-        html_content = f"<h1>OpenAI Recommendations</h1><p>{response.choices[0].message.content}</p>"
+        html_content = f"<h1>Claude Recommendations</h1><p>{response.content[0].text}</p>"
         return HTMLResponse(content=html_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
